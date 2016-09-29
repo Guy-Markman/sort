@@ -5,6 +5,7 @@ import argparse
 
 DOWN_LINE = "\n"
 
+
 def parse_args():
     """Parse program argument."""
 
@@ -29,8 +30,9 @@ def parse_args():
     args = parser.parse_args()
     return args
 
+
 def main():
-    params=parse_args()
+    params = parse_args()
     fd = os.open(params.FILE_NAME, os.O_RDWR | os.O_CREAT)
     try:
         for x in range(params.NUMBER_LINES):

@@ -1,7 +1,6 @@
 import os
 import math
 import argparse
-import time
 import multiprocessing
 
 
@@ -59,7 +58,7 @@ def bubblesort(alist):
     return alist
 
 
-def creat_queue(q):
+def create_queue(q):
     params = parse_args()
     length = get_length()
     fd = os.open(params.FILE_NAME, os.O_RDONLY)
@@ -69,13 +68,18 @@ def creat_queue(q):
             os.lseek(fd, length*(params.LINES_PER_FILE-2), 1)
             end = os.read(fd, length)
             q.put({"Start": start, "End": end})
+        
         nextline = os.read(fd, length)
-        start = nextline
-        end = start
-        if nextline != "":
-            end = nextline
-        if start != "":
+        if nextline!="":
+            start = nextline
+            end = start
+            while True:
+                nextline = os.read(fd, length)
+                if nextline=="":
+                    break
+                end=nextline
             q.put({"Start": start, "End": end})
+        
     finally:
         os.close(fd)
 
@@ -87,33 +91,30 @@ def sort_records_process(q):
     try:
         while not q.empty():
             block = q.get()
-            print "Sorting %s" % block
             start_pos = 0
             while True:
                 line = os.read(fd, get_length())
                 if line == block["Start"]:
                     break
                 start_pos += length
-            print "Line found %s" % line
             txt = line
-            print block["End"][-1] == "\n"
             while True:
-                txt += os.read(fd, get_length())
                 if txt[(-1*length)+1:] == block["End"]:
                     break
-            print "End found"
+                txt += os.read(fd, get_length())  
             txt = "\n".join(
                 bubblesort(txt[:-1].split(DOWN_LINE))
                 )+"\n"
             os.lseek(fd, start_pos, 0)
-            os.write(fd, txt)                
+            os.write(fd, txt)
+            os.lseek(fd, 0, 0)
     finally:
         os.close(fd)
 
 
 def sort_records():
     q = multiprocessing.Queue()
-    creat_queue(q)
+    create_queue(q)
     jobs = []
     for x in range(1):
         p = multiprocessing.Process(target=sort_records_process, args=(q, ))
@@ -145,7 +146,7 @@ def sort_and_print(file_input, output, lines):
 def change_to_dictionaries(fd):
     params = parse_args()
     ans = []
-    length = get_length()
+    length = int(math.ceil(params.NUMBER_PER_LINE/3.0)*4+2)
     for x in range(
             int(math.ceil(float(params.NUMBER_LINES) / params.LINES_PER_FILE))
             ):
@@ -163,14 +164,13 @@ def change_to_dictionaries(fd):
 
 def check(output):
     params = parse_args()
-    length = get_length()
     os.lseek(output, 0, 0)
     ans = True
-    first_line = os.read(output, length)
+    first_line = os.read(output, get_length())
     for x in range(params.NUMBER_LINES-1):
-        second_line = os.read(output, length)
+        second_line = os.read(output, get_length())
         if second_line < first_line:
-            print "%s %s fail" % (first_line, second_line)
+            print "%s%s"%(second_line, first_line)
             ans = False
         first_line = second_line
     return ans
@@ -181,7 +181,10 @@ def main():
     file_input = os.open(params.FILE_NAME, os.O_RDWR)
     output = os.open(params.FILE_OUTPUT_NAME, os.O_RDWR | os.O_CREAT)
     try:
-        sort_records()        
+        sort_records()
+        lines = change_to_dictionaries(file_input)
+        sort_and_print(file_input, output, lines)
+        print check(output)
     finally:
         os.close(file_input)
         os.close(output)
