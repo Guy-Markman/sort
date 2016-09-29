@@ -1,6 +1,7 @@
 import os
 import math
 import argparse
+import time
 
 DOWN_LINE = "\n"
 
@@ -110,17 +111,20 @@ def change_to_records(fd):
 
 
 def main():
+    start_time=time.time()
+
     params = parse_args()
     input = os.open(params.FILE_NAME, os.O_RDWR)
     output = os.open(params.FILE_OUTPUT_NAME, os.O_RDWR | os.O_CREAT)
     try:
         sort_records()
+        print time.time() - start_time
         lines = change_to_records(input)
         sort_and_print(input, output, lines)
+        print time.time() - start_time
     finally:
         os.close(input)
         os.close(output)
-
 
 if __name__ == "__main__":
     main()

@@ -61,49 +61,23 @@ def bubblesort(alist):
 def create_queue(q):
     params = parse_args()
     length = get_length()
-    fd = os.open(params.FILE_NAME, os.O_RDONLY)
-    try:
-        for x in range(params.NUMBER_LINES / params.LINES_PER_FILE):
-            start = os.read(fd, length)
-            os.lseek(fd, length*(params.LINES_PER_FILE-2), 1)
-            end = os.read(fd, length)
-            q.put({"Start": start, "End": end, "StartLine": x*length*params.LINES_PER_FILE})
-        
-        nextline = os.read(fd, length)
-        if nextline!="":
-            int(math.ceil(params.NUMBER_LINES / params.LINES_PER_FILE))*length*params.LINES_PER_FILE
-            start = nextline
-            end = start
-            while True:
-                nextline = os.read(fd, length)
-                if nextline=="":
-                    break
-                end=nextline
-            q.put({
-                    "Start": start
-                    , "End": end,
-                    "StartLine": int(math.ceil(params.NUMBER_LINES / params.LINES_PER_FILE))*length*params.LINES_PER_FILE
-                    })
-        
-    finally:
-        os.close(fd)
+    for x in range(int(math.ceil(float(params.NUMBER_LINES) / params.LINES_PER_FILE))):
+        q.put({"StartLine": x*length*params.LINES_PER_FILE})
 
 
 def sort_records_process(q):
     params = parse_args()
     fd = os.open(params.FILE_NAME, os.O_RDWR)
-    length = get_length()
     try:
         while not q.empty():            
             block = q.get()
-            os.lseek(fd, block["StartLine"], 0)
-            txt=os.read(fd, get_length()*params.LINES_PER_FILE)        
+            print block
+            os.lseek(fd, block["StartLine"], 0)  
             txt = "\n".join(
-                bubblesort(txt[:-1].split(DOWN_LINE))
+                bubblesort(os.read(fd, get_length()*params.LINES_PER_FILE)[:-1].split(DOWN_LINE))
                 )+"\n"
             os.lseek(fd, block["StartLine"], 0)
-            os.write(fd, txt)
-        
+            os.write(fd, txt)        
     finally:
         os.close(fd)
 
@@ -119,7 +93,6 @@ def sort_records():
     for job in jobs:
         job.join()
         print job
-    q.close()
 
 
 def sort_and_print(file_input, output, lines):
@@ -168,20 +141,20 @@ def check(output):
     for x in range(params.NUMBER_LINES-1):
         second_line = os.read(output, get_length())
         if second_line < first_line:
-            print "%s%s"%(second_line, first_line)
+            print "%s%s" % (second_line, first_line)
             ans = False
         first_line = second_line
     return ans
 
 
 def main():
-    start_time=time.time()
+    start_time = time.time()
     params = parse_args()
     file_input = os.open(params.FILE_NAME, os.O_RDWR)
     output = os.open(params.FILE_OUTPUT_NAME, os.O_RDWR | os.O_CREAT)
     try:
         sort_records()
-        start_time=time.time()
+        print time.time() - start_time
         lines = change_to_dictionaries(file_input)
         sort_and_print(file_input, output, lines)
         print check(output)
