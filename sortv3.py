@@ -71,8 +71,7 @@ def sort_records_process(q):
     try:
         while not q.empty():            
             block = q.get()
-            print block
-            os.lseek(fd, block["StartLine"], 0)  
+            os.lseek(fd, block["StartLine"], 0)
             txt = "\n".join(
                 bubblesort(os.read(fd, get_length()*params.LINES_PER_FILE)[:-1].split(DOWN_LINE))
                 )+"\n"
@@ -92,7 +91,6 @@ def sort_records():
         p.start()
     for job in jobs:
         job.join()
-        print job
 
 
 def sort_and_print(file_input, output, lines):
@@ -154,7 +152,6 @@ def main():
     output = os.open(params.FILE_OUTPUT_NAME, os.O_RDWR | os.O_CREAT)
     try:
         sort_records()
-        print time.time() - start_time
         lines = change_to_dictionaries(file_input)
         sort_and_print(file_input, output, lines)
         print check(output)
