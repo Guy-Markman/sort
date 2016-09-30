@@ -2,7 +2,6 @@ import os
 import math
 import argparse
 import multiprocessing
-import time
 
 DOWN_LINE = "\n"
 
@@ -43,9 +42,8 @@ def parse_args():
     return args
 
 
-def get_length():
-    params = parse_args()
-    return int(math.ceil(params.NUMBER_PER_LINE/3.0)*4+2)
+def get_length(number_per_line):
+    return int(math.ceil(number_per_line/3.0)*4+2)
 
 
 def bubblesort(alist):
@@ -58,22 +56,22 @@ def bubblesort(alist):
     return alist
 
 
-def create_queue(q):
-    params = parse_args()
-    length = get_length()
-    for x in range(int(math.ceil(float(params.NUMBER_LINES) / params.LINES_PER_FILE))):
-        q.put({"StartLine": x*length*params.LINES_PER_FILE})
+def create_queue(q, number_lines, lines_per_file, number_per_line):
+    length = get_length(number_per_line)
+    for x in range(int(math.ceil(float(number_lines) / lines_per_file))):
+        q.put({"StartLine": x*length*lines_per_file})
 
 
-def sort_records_process(q):
+def sort_records_process(q, number_per_line):
     params = parse_args()
     fd = os.open(params.FILE_NAME, os.O_RDWR)
+    length = get_length(number_per_line)
     try:
         while not q.empty():            
             block = q.get()
             os.lseek(fd, block["StartLine"], 0) 
             txt = "\n".join(
-                bubblesort(os.read(fd, get_length()*params.LINES_PER_FILE)[:-1].split(DOWN_LINE))
+                bubblesort(os.read(fd, length*params.LINES_PER_FILE)[:-1].split(DOWN_LINE))
                 )+"\n"
             os.lseek(fd, block["StartLine"], 0)
             os.write(fd, txt)        
@@ -81,12 +79,12 @@ def sort_records_process(q):
         os.close(fd)
 
 
-def sort_records():
+def sort_records(number_lines, lines_per_file, number_per_line):
     q = multiprocessing.Queue()
-    create_queue(q)
+    create_queue(q, number_lines, lines_per_file, number_per_line)
     jobs = []
     for x in range(multiprocessing.cpu_count()):
-        p = multiprocessing.Process(target=sort_records_process, args=(q, ))
+        p = multiprocessing.Process(target=sort_records_process, args=(q, number_per_line))
         jobs.append(p)
         p.start()
     q.close()
@@ -94,53 +92,48 @@ def sort_records():
         job.join()
 
 
-def sort_and_print(file_input, output, lines):
-    params = parse_args()
-    length = get_length()
-    for z in range(params.NUMBER_LINES):
+def sort_and_print(file_input, output, lines, number_lines, lines_per_file, number_per_line):
+    length = get_length(number_per_line)
+    for z in range(number_lines):
         smallest_line = bubblesort([x["line"] for x in lines])[0]
         n = [x["line"] for x in lines].index(smallest_line)
         os.write(output, smallest_line)        
         os.lseek(file_input, lines[n]["cursor"], 0)   
         newline = os.read(file_input, length)
         # If we finished reading the record
-        if lines[n]["number_line"] == params.LINES_PER_FILE-1 or newline == "":
+        if lines[n]["number_line"] == lines_per_file-1 or newline == "":
             del lines[n]
         # Switch to the next line
         else:
-            
             lines[n]["number_line"] += 1
             lines[n]["cursor"] += length
             lines[n]["line"] = newline
-            
         
 
-def change_to_dictionaries(fd):
-    params = parse_args()
+def change_to_dictionaries(fd, number_lines, lines_per_file, number_per_line):
     ans = []
-    length = int(math.ceil(params.NUMBER_PER_LINE/3.0)*4+2)
+    length = get_length(number_per_line)
     for x in range(
-            int(math.ceil(float(params.NUMBER_LINES) / params.LINES_PER_FILE))
+            int(math.ceil(float(number_lines) / lines_per_file))
             ):
         ans.append(
             {
                 "number_line": 0,
-                "cursor": x*length*params.LINES_PER_FILE+length,
+                "cursor": x*length*lines_per_file+length,
                 "line": os.read(fd, length)
             }
         )
-        os.lseek(fd, (params.LINES_PER_FILE-1)*length, os.SEEK_CUR)
+        os.lseek(fd, (lines_per_file-1)*length, os.SEEK_CUR)
     os.lseek(fd, 0, 0)
     return ans
 
 
-def check(output):
-    params = parse_args()
+def check(output, number_lines, number_per_line):
     os.lseek(output, 0, 0)
     ans = True
-    length = get_length()
+    length = get_length(number_per_line)
     first_line = os.read(output, length)
-    for x in range(params.NUMBER_LINES-1):
+    for x in range(number_lines-1):
         second_line = os.read(output, length)
         if second_line < first_line:
             print "%s%s" % (second_line, first_line)
@@ -154,12 +147,10 @@ def main():
     file_input = os.open(params.FILE_NAME, os.O_RDWR)
     output = os.open(params.FILE_OUTPUT_NAME, os.O_RDWR | os.O_CREAT)
     try:
-        start_time = time.time()
-        sort_records()
-        lines = change_to_dictionaries(file_input)
-        sort_and_print(file_input, output, lines)
-        print check(output)
-        print time.time() - start_time
+        sort_records(params.NUMBER_LINES, params.LINES_PER_FILE, params.NUMBER_PER_LINE)
+        lines = change_to_dictionaries(file_input, params.NUMBER_LINES, params.LINES_PER_FILE, params.NUMBER_PER_LINE)
+        sort_and_print(file_input, output, lines, params.NUMBER_LINES, params.LINES_PER_FILE, params.NUMBER_PER_LINE)
+        print check(output, params.NUMBER_LINES, params.NUMBER_PER_LINE)
     finally:
         os.close(file_input)
         os.close(output)
