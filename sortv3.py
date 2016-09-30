@@ -71,7 +71,7 @@ def sort_records_process(q):
     try:
         while not q.empty():            
             block = q.get()
-            os.lseek(fd, block["StartLine"], 0)
+            os.lseek(fd, block["StartLine"], 0) 
             txt = "\n".join(
                 bubblesort(os.read(fd, get_length()*params.LINES_PER_FILE)[:-1].split(DOWN_LINE))
                 )+"\n"
@@ -89,6 +89,7 @@ def sort_records():
         p = multiprocessing.Process(target=sort_records_process, args=(q, ))
         jobs.append(p)
         p.start()
+    q.close()
     for job in jobs:
         job.join()
 
@@ -99,18 +100,20 @@ def sort_and_print(file_input, output, lines):
     for z in range(params.NUMBER_LINES):
         smallest_line = bubblesort([x["line"] for x in lines])[0]
         n = [x["line"] for x in lines].index(smallest_line)
-        os.write(output, smallest_line)
-        os.lseek(file_input, lines[n]["cursor"], 0)
+        os.write(output, smallest_line)        
+        os.lseek(file_input, lines[n]["cursor"], 0)   
         newline = os.read(file_input, length)
         # If we finished reading the record
         if lines[n]["number_line"] == params.LINES_PER_FILE-1 or newline == "":
             del lines[n]
         # Switch to the next line
         else:
+            
             lines[n]["number_line"] += 1
-            lines[n]["cursor"] += get_length()
+            lines[n]["cursor"] += length
             lines[n]["line"] = newline
-
+            
+        
 
 def change_to_dictionaries(fd):
     params = parse_args()
@@ -135,9 +138,10 @@ def check(output):
     params = parse_args()
     os.lseek(output, 0, 0)
     ans = True
-    first_line = os.read(output, get_length())
+    length = get_length()
+    first_line = os.read(output, length)
     for x in range(params.NUMBER_LINES-1):
-        second_line = os.read(output, get_length())
+        second_line = os.read(output, length)
         if second_line < first_line:
             print "%s%s" % (second_line, first_line)
             ans = False
@@ -146,11 +150,11 @@ def check(output):
 
 
 def main():
-    start_time = time.time()
     params = parse_args()
     file_input = os.open(params.FILE_NAME, os.O_RDWR)
     output = os.open(params.FILE_OUTPUT_NAME, os.O_RDWR | os.O_CREAT)
     try:
+        start_time = time.time()
         sort_records()
         lines = change_to_dictionaries(file_input)
         sort_and_print(file_input, output, lines)
