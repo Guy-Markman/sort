@@ -75,7 +75,7 @@ def sort_records():
 def sort_and_print(input, output, lines):
     params = parse_args()
     length = int(math.ceil(params.NUMBER_PER_LINE/3.0)*4+2)
-    for z in range(params.NUMBER_LINES):
+    for z in range(params.NUMBER_LINES):        
         smallestLine = bubbleSort([x["line"] for x in lines])[0]
         n = [x["line"] for x in lines].index(smallestLine)
         os.write(output, smallestLine)
@@ -90,8 +90,7 @@ def sort_and_print(input, output, lines):
             lines[n]["cursor"] += length
             lines[n]["line"] = newline
 
-
-def change_to_records(fd):
+def change_to_dictionaries(fd):
     params = parse_args()
     ans = []
     length = int(math.ceil(params.NUMBER_PER_LINE/3.0)*4+2)
@@ -109,21 +108,40 @@ def change_to_records(fd):
     os.lseek(fd, 0, 0)
     return ans
 
+    
+def get_length():
+    params = parse_args()
+    return int(math.ceil(params.NUMBER_PER_LINE/3.0)*4+2)
+
+
+def check(output):
+    params = parse_args()
+    os.lseek(output, 0, 0)
+    ans = True
+    length = get_length()
+    first_line = os.read(output, length)
+    for x in range(params.NUMBER_LINES-1):
+        second_line = os.read(output, length)
+        if second_line < first_line:
+            print "%s%s" % (second_line, first_line)
+            ans = False
+        first_line = second_line
+    return ans
 
 def main():
-    start_time=time.time()
-
     params = parse_args()
-    input = os.open(params.FILE_NAME, os.O_RDWR)
+    file_input = os.open(params.FILE_NAME, os.O_RDWR)
     output = os.open(params.FILE_OUTPUT_NAME, os.O_RDWR | os.O_CREAT)
     try:
+        start_time=time.time()
         sort_records()
+        lines = change_to_dictionaries(file_input)
+        sort_and_print(file_input, output, lines)
+        print check(output)
         print time.time() - start_time
-        lines = change_to_records(input)
-        sort_and_print(input, output, lines)
-        print time.time() - start_time
+
     finally:
-        os.close(input)
+        os.close(file_input)
         os.close(output)
 
 if __name__ == "__main__":
